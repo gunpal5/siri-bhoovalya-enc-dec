@@ -54,4 +54,6 @@ This repository is licensed under the GNU General Public License.
 
 This research acknowledges the work of:
 
-- **Siri Bhuvalya Research and Training
+- **Siri Bhuvalya Research and Training Centre**
+- **Kundkunda Gyanapeeth**, Shri Digambar Jain Udasin Ashram, Indore – 452 001
+- **En. Anil Kumar Jain**
