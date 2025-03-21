@@ -1,11 +1,17 @@
 using System.Text;
+using Microsoft.EntityFrameworkCore;
 using SiriBhuvalyaExtractor.AI;
+using SiriBhuvalyaExtractor.Databases;
 using SiriBhuvalyaExtractor.Extensions;
+using SiriBhuvalyaExtractor.NLP;
+using SiriBhuvalyaExtractor.WordMatcher;
 
 namespace SiriBhuvalyaExtractor.Extractor;
 
 public class ChakraPathFinder
 {
+    #region Private Methods
+
     static void InitializeToroidalGrid(ToroidalGridHologram hologram, int[,] gridValues)
     {
         int rows = gridValues.GetLength(0);
@@ -183,13 +189,34 @@ public class ChakraPathFinder
             sentence.Words.Select(w => $"{w.Word}: {w.StartIndex} - {w.EndIndex}"));
     }
 
-    public async Task FindPath(string inputFile, string? outputDirectory, int maxVowels = 2, int maxConsonants = 3,
-        string filePrefix = "sample")
+    #endregion
+
+    #region Constructor
+
+    private SanskritWordTree _sanskritTree;
+    private HelagandaWordTree _helagandaTree;
+    private SanskritDictionary dictionary;
+
+    public ChakraPathFinder()
     {
-        var chakra = File.ReadAllText(inputFile)
+        _sanskritTree = new SanskritWordTree();
+        _sanskritTree.LoadDictionary("Data\\mw_deva.txt");
+
+        dictionary = new SanskritDictionary("Data\\mw_deva.txt");
+        _helagandaTree = new HelagandaWordTree();
+        _helagandaTree.LoadDictionary("Data\\helaganda.txt");
+    }
+
+    #endregion
+
+    public async Task FindPath(string inputFile, string? outputDirectory, int maxVowels = 2, int maxConsonants = 3,
+        string filePrefix = "sample", bool cycleOnly = false)
+    {
+        var chakra1 = File.ReadAllText(inputFile)
             .Split("\r\n, \t".ToArray(), StringSplitOptions.RemoveEmptyEntries)
-            .Select(s => s.Trim())
-            .Select(int.Parse).ToArray();
+            .Select(s => s.Trim());
+
+        var chakra = chakra1.Select(int.Parse).ToArray();
 
 
         var outputFolder = string.IsNullOrEmpty(outputDirectory) ? "output" : outputDirectory;
@@ -201,84 +228,196 @@ public class ChakraPathFinder
 
         var gridValues = chakra.To2DArray();
 
-
         // Configure the hologram to allow diagonal movement
         InitializeToroidalGrid(hologram, gridValues);
 
-        var solver2 = new WarnsdorffHamiltonianPathFinder(hologram, gridValues);
+        //var solver2 = new WarnsdorffHamiltonianPathFinder(hologram, gridValues, maxVowels, maxConsonants);
 
+        var solver2 = new GeneticAlgorithm(hologram, gridValues, maxVowels, maxConsonants);
         HashSet<string> seen = new HashSet<string>();
         while (true)
         {
-            try
+            // try
+            // {
+            //var solution = solver2.FindHamiltonianPathWarnsdorff();
+
+            // var solution = cycleOnly
+            //     ? solver2.FindHamiltonianCycleWarnsdorff()
+            //     : solver2.FindHamiltonianPathWarnsdorff();
+
+            var solution = solver2.FindHamiltonianPathGenetic();
+            if (solution.Count < 729)
+                continue;
+            // // var solutions = solver.FindLimitedHamiltonianPaths(1);
+            var x = solver2.GetPathHash(solution);
+            if (seen.Add(x))
             {
-                var solution = solver2.FindHamiltonianPathWarnsdorff();
-                // // var solutions = solver.FindLimitedHamiltonianPaths(1);
-                var x = solver2.GetPathHash(solution);
-                if (!seen.Add(x))
+                //var solution = solutions.First();
+                Console.WriteLine("Solution found:");
+                Console.WriteLine($"Path length: {solution.Count}");
+                Console.WriteLine($"Complete cycle: {solution.First().Equals(solution.Last())}");
+
+                if (VerifyCycle(solution, gridValues))
                 {
-                    //var solution = solutions.First();
-                    Console.WriteLine("Solution found:");
-                    Console.WriteLine($"Path length: {solution.Count}");
-                    Console.WriteLine($"Complete cycle: {solution.First().Equals(solution.Last())}");
-
-                    if (VerifyCycle(solution, gridValues))
+                    // Print the solution
+                    StringBuilder path = new StringBuilder();
+                    StringBuilder path2 = new StringBuilder();
+                    StringBuilder path3 = new StringBuilder();
+                    path3.Append("\r\n\r\nKannada: \r\n");
+                    path.Append("\r\n\r\nPath: ");
+                    var grid2 = new int[gridValues.GetLength(0), gridValues.GetLength(1)];
+                    foreach (var vertex in solution)
                     {
-                        // Print the solution
-                        StringBuilder path = new StringBuilder();
-                        StringBuilder path2 = new StringBuilder();
-                        StringBuilder path3 = new StringBuilder();
-                        path3.Append("\r\n\r\nKannada: \r\n");
-                        path.Append("\r\n\r\nPath: ");
-                        var grid2 = new int[gridValues.GetLength(0), gridValues.GetLength(1)];
-                        foreach (var vertex in solution)
-                        {
-                            path.Append($"({vertex.Row},{vertex.Col}):{gridValues[vertex.Row, vertex.Col]} -> ");
-                            path2.Append($"\"{Constants.devnagri[gridValues[vertex.Row, vertex.Col] - 1]}\",");
-                            path3.Append(
-                                $"\"{Constants.kannadaScriptCharacters[gridValues[vertex.Row, vertex.Col] - 1]}\",");
-                        }
-
-
-                        var random = new Random();
-                        var fileName = Path.Combine(outputFolder, $"{filePrefix}-{random.Next()}.txt");
-                        await File.WriteAllTextAsync(fileName, path2.ToString());
-                        await File.AppendAllTextAsync(fileName, path3.ToString());
-
-                        // SanskritWordLookup lookup = new SanskritWordLookup(dictionary);
-                        // var wordsX = lookup.ExtractWords(
-                        //     path2.ToString().Split(",".ToCharArray(), StringSplitOptions.RemoveEmptyEntries).Select(s=>s.Replace("\"","")).ToList());
-                        //
-                        // File.AppendAllText(fileName,"\r\n\r\n"+
-                        //     string.Join(",",words));
-
-                        try
-                        {
-                            var aiProcess = new AIProcessor();
-                            var sentences = await aiProcess.Process(path2.ToString().Split(",").ToList());
-
-                            await File.AppendAllTextAsync(fileName, "\r\n\r\n" +
-                                                         string.Join("\r\n",
-                                                             sentences.Select(s =>
-                                                                 $"{s.SentenceText}\r\n{s.Meaning}\r\n{JoinWords(s)}\r\n\r\n")));
-                        }
-                        catch
-                        {
-                        }
-
-                        await File.AppendAllTextAsync(fileName, path.ToString());
-                        Console.WriteLine(path.ToString().TrimEnd(' ', '-', '>'));
-
-                        Console.ReadLine();
-                        // var strings = path2.ToString().Split(",");
-                        // WordMatch.ProcessSequence(strings.ToList(), words2);
+                        path.Append($"({vertex.Row},{vertex.Col}):{gridValues[vertex.Row, vertex.Col]} -> ");
+                        path2.Append($"\"{Constants.devnagri[gridValues[vertex.Row, vertex.Col] - 1]}\",");
+                        path3.Append(
+                            $"\"{Constants.kannadaScriptCharacters[gridValues[vertex.Row, vertex.Col] - 1]}\",");
                     }
+
+                    var random = new Random();
+                    var fileName = Path.Combine(outputFolder, $"{filePrefix}-{random.Next()}.txt");
+                    await File.WriteAllTextAsync(fileName, path2.ToString());
+                    await File.AppendAllTextAsync(fileName, path3.ToString());
+
+                    await ProcessWords(path2, path3, fileName, cycleOnly, outputDirectory);
+
+                    try
+                    {
+                        if (solution[0].Row == 0)
+                        {
+                            // var aiProcess = new AIProcessor();
+                            // var sentences = await aiProcess.Process(path2.ToString().Split(",").ToList());
+                            //
+                            // await File.AppendAllTextAsync(fileName, "\r\n\r\n" +
+                            //                                         string.Join("\r\n",
+                            //                                             sentences.Select(s =>
+                            //                                                 $"{s.SentenceText}\r\n{s.Meaning}\r\n{JoinWords(s)}\r\n\r\n")));
+                        }
+                    }
+                    catch
+                    {
+                    }
+
+                    await File.AppendAllTextAsync(fileName, path.ToString());
+                    Console.WriteLine(path.ToString().TrimEnd(' ', '-', '>'));
+
+                    //Console.ReadLine();
+                    // var strings = path2.ToString().Split(",");
+                    // WordMatch.ProcessSequence(strings.ToList(), words2);
                 }
             }
-            catch (Exception ex)
+            // }
+            // catch (Exception ex)
+            // {
+            //     Console.WriteLine(ex.Message);
+            // }
+        }
+    }
+
+
+    private async Task ProcessWords(StringBuilder sanskrit, StringBuilder helaganda, string fileName, bool cycleOnly,
+        string? outputDirectory)
+    {
+        //Process Sanskrit
+        if (!cycleOnly)
+        {
+            SanskritWordLookup lookup = new SanskritWordLookup(_sanskritTree);
+
+            var list = sanskrit.ToString().Split(",".ToCharArray(), StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => s.Replace("\"", "")).ToList();
+
+
+            var wordsx = lookup.ExtractWords(list);
+
+            await GradeAndSave(wordsx, fileName, outputDirectory);
+
+            File.AppendAllText(fileName, "\r\n\r\n" +
+                                         string.Join(",", wordsx));
+            list.Reverse();
+            wordsx = lookup.ExtractWords(list);
+            await GradeAndSave(wordsx, fileName, outputDirectory);
+            File.AppendAllText(fileName, "\r\n\r\n" +
+                                         string.Join(",", wordsx));
+        }
+        else
+        {
+            var list = sanskrit.ToString().Split(",".ToCharArray(), StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => s.Replace("\"", "")).ToList();
+
+            for (int i = 0; i < list.Count; i++)
             {
-                Console.WriteLine(ex.Message);
+                SanskritWordLookup lookup = new SanskritWordLookup(_sanskritTree);
+                var wordsx = lookup.ExtractWords(list);
+
+                await File.AppendAllTextAsync(fileName, "\r\n\r\n" +
+                                                        string.Join(",", wordsx));
+                //Rotate
+                var firstElement = list[0];
+                for (int j = 0; j < list.Count - 1; j++)
+                {
+                    list[j] = list[j + 1];
+                }
+
+                list[list.Count - 1] = firstElement;
             }
+        }
+
+        //Process Helaganda
+        if (!cycleOnly)
+        {
+            HelagandaWordLookup lookup = new HelagandaWordLookup(_helagandaTree);
+
+            var list = helaganda.ToString().Split(",".ToCharArray(), StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => s.Replace("\"", "")).ToList();
+
+            var wordsx = lookup.ExtractWords(list);
+
+            File.AppendAllText(fileName, "\r\n\r\n" +
+                                         string.Join(",", wordsx));
+            list.Reverse();
+            wordsx = lookup.ExtractWords(list);
+
+            File.AppendAllText(fileName, "\r\n\r\n" +
+                                         string.Join(",", wordsx));
+        }
+        else
+        {
+            var list = helaganda.ToString().Split(",".ToCharArray(), StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => s.Replace("\"", "")).ToList();
+
+            for (int i = 0; i < list.Count; i++)
+            {
+                HelagandaWordLookup lookup = new HelagandaWordLookup(_helagandaTree);
+                var wordsx = lookup.ExtractWords(list);
+
+                await File.AppendAllTextAsync(fileName, "\r\n\r\n" +
+                                                        string.Join(",", wordsx));
+                //Rotate
+                var firstElement = list[0];
+                for (int j = 0; j < list.Count - 1; j++)
+                {
+                    list[j] = list[j + 1];
+                }
+
+                list[list.Count - 1] = firstElement;
+            }
+        }
+    }
+
+    private async Task GradeAndSave(List<string> wordsx, string fileName, string? outputDirectory)
+    {
+        var grading = new SanskritProcessor(dictionary);
+        var result = grading.ProcessFragments(new FragmentArray() { Fragments = wordsx.ToArray() });
+        if (result.Count > 0 && result[0].Score > 65)
+        {
+            var f = fileName.Substring(fileName.LastIndexOf("\\") + 1);
+
+            var path = Path.Combine(outputDirectory, "Graded");
+            if (!Directory.Exists(path))
+                Directory.CreateDirectory(path);
+            fileName = Path.Combine(path, $"{Math.Round(result[0].Score)}_Graded_{f}");
+            await File.AppendAllTextAsync(fileName, "\r\n\r\n" +
+                                                    string.Join(",", result));
         }
     }
 }

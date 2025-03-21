@@ -2,6 +2,8 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SiriBhuvalyaExtractor", "SiriBhuvalyaExtractor\SiriBhuvalyaExtractor.csproj", "{8B34B5A2-EB31-4998-B3E3-950669F9B624}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ContentGrader", "ContentGrader\ContentGrader.csproj", "{8F7AD0AE-E3F2-4023-8A91-FAE01DE4B2FB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -12,5 +14,9 @@ Global
 		{8B34B5A2-EB31-4998-B3E3-950669F9B624}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8B34B5A2-EB31-4998-B3E3-950669F9B624}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8B34B5A2-EB31-4998-B3E3-950669F9B624}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8F7AD0AE-E3F2-4023-8A91-FAE01DE4B2FB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8F7AD0AE-E3F2-4023-8A91-FAE01DE4B2FB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8F7AD0AE-E3F2-4023-8A91-FAE01DE4B2FB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8F7AD0AE-E3F2-4023-8A91-FAE01DE4B2FB}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

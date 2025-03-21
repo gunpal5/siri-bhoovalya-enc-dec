@@ -15,14 +15,17 @@ var rootCommand = new RootCommand(
     new Option<int>(
         ["--consonants-count", "-c"], getDefaultValue: () => 3, "optional: number of vowels in the path. default: 3"),
     new Option<string>(
-        ["--file-prefix", "-f"], getDefaultValue: () => "sample", "optional: output file prefix. default: \"sample\"")
+        ["--file-prefix", "-f"], getDefaultValue: () => "sample", "optional: output file prefix. default: \"sample\""),
+    new Option<bool>(
+    ["--cycle", "-s"], getDefaultValue: () => false, "optional: Return Hamiltonian Cycle. default: false")
 };
 
-rootCommand.Handler = CommandHandler.Create(async (string inputFile, string output,int vowelCount,int consonantsCount,string filePrefix) =>
+rootCommand.Handler = CommandHandler.Create(async (string inputFile, string output,int vowelCount,int consonantsCount,string filePrefix, bool cycle) =>
 {
-    var chaktraPathFinder = new ChakraPathFinder();
-
-    await chaktraPathFinder.FindPath(inputFile,output,vowelCount,consonantsCount,filePrefix).ConfigureAwait(false);
+    //var d = new DiagonalExtractor(inputFile);
+     var chaktraPathFinder = new ChakraPathFinder();
+    //
+     await chaktraPathFinder.FindPath(inputFile,output,vowelCount,consonantsCount,filePrefix,cycle).ConfigureAwait(false);
 });
 
 return await rootCommand.InvokeAsync(args).ConfigureAwait(false);

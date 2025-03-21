@@ -4,4 +4,5 @@ public class SanskritWord
 {
     public string Word { get; set; }
     public string Gloss { get; set; }
+    public byte[] Synset { get; set; }
 }
