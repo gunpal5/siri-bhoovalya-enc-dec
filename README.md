@@ -10,7 +10,7 @@ This repository houses a research effort dedicated to uncovering the encoding an
 
 ## What is Siri Bhoovalya?
 
-Siri Bhuvalya (also spelled Siri Bhoovalaya) is a unique ancient Jain manuscript composed entirely in a numerical script. These numbers correspond to syllables across 718 languages, integrating knowledge from multiple sciences and cultural texts. It was composed by Muni Shri Kumudendu in the 9th century.
+Siri Bhoovalaya is a unique ancient Jain manuscript composed entirely in a numerical script. These numbers correspond to syllables across 718 languages, integrating knowledge from multiple sciences and cultural texts. It was composed by Muni Shri Kumudendu in the 9th century.
 
 Key characteristics of Siri Bhuvalya:
 
